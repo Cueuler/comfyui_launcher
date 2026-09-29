@@ -1,20 +1,3 @@
-# ============================================================
-#  ComfyUI launcher: update (git + uv) -> sanity check -> run
-#  venv: .venv | GPU: NVIDIA (CUDA 13.0 wheels) | port: 8188
-#
-#  Ctrl+C note (why the poll loop below exists):
-#   1) ComfyUI on Windows does NOT die from Ctrl+C by itself:
-#      its main thread is parked in a ProactorEventLoop IOCP wait,
-#      the SIGINT flag is set but never processed -> no
-#      KeyboardInterrupt, process keeps holding port 8188.
-#   2) The old `$proc.WaitForExit()` was uninterruptible too:
-#      PowerShell cannot run the finally-block kill until that
-#      .NET call returns, so Ctrl+C just gave the prompt back
-#      and the kill never ran (python survived as PID zombie).
-#  Fix: poll HasExited in a Start-Sleep loop (interruptible ->
-#  finally runs immediately) and hard-kill (TerminateProcess)
-#  instead of hoping python handles the interrupt gracefully.
-# ============================================================
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------- CONFIG ----------------------------
