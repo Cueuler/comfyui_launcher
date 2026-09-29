@@ -38,27 +38,6 @@ The server starts at `http://127.0.0.1:8188`. Press **Ctrl+C** in the launcher w
 7. **Port cleanup** — anything holding port 8188 (typically a leftover ComfyUI python) is force-terminated before launch.
 8. **Launch** — starts `.venv\Scripts\python.exe main.py --enable-manager --highvram` with the working directory set to the ComfyUI root (custom_nodes/models resolve relative to it), then waits in an interruptible poll loop.
 
-## Stopping: why Ctrl+C now works
-
-Two Windows-specific problems previously made Ctrl+C leave a zombie python holding port 8188:
-
-- **ComfyUI ignores the console Ctrl+C on Windows.** Its main thread parks in the asyncio Proactor event loop; when idle, that IOCP wait never returns, so the SIGINT flag is set but `KeyboardInterrupt` is never raised. The process only dies to a hard `TerminateProcess`.
-- **The old `$proc.WaitForExit()` was uninterruptible.** PowerShell 5.1 returns the prompt on Ctrl+C but cannot run the script's `finally` block (with the kill) until that .NET call returns — which it never did.
-
-The script therefore:
-
-- polls with `while (-not $proc.HasExited) { Start-Sleep -Milliseconds 250 }` — `Start-Sleep` *is* interruptible, so the stop is processed within ~250 ms;
-- in `finally`, kills **first, prints after**: `.Kill()` → `Stop-Process -Force` → `taskkill /PID n /T /F` (tree fallback), each in its own `try/catch`.
-
-Expected output on Ctrl+C:
-
-```
-[Shutdown] Stop signal received. ComfyUI (PID 12345) terminated.
-[ComfyUI stopped by user]
-```
-
-Afterwards `Get-NetTCPConnection -LocalPort 8188` should return nothing.
-
 ## Exit codes
 
 When ComfyUI exits on its own (not via Ctrl+C), the script classifies `$ComfyProcess.ExitCode`
